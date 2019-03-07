@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"strconv"
 )
@@ -59,10 +61,12 @@ func parseArgs() (uint16, string) {
 }
 
 func main() {
-	port, redis_location := parseArgs()
+	port, _ := parseArgs()
 	pid := os.Getpid()
 
 	log.Println("!!! Crier is starting !!!")
+
+	startWebServer(port)
 
 	// Quick ref sheet
 	fmt.Printf("\n")
@@ -70,5 +74,30 @@ func main() {
 	fmt.Printf("    PID: %d\n", pid)
 	fmt.Printf("\n")
 
-	log.Printf("Redis location: '%s'", redis_location)
+	select {}
+
+	log.Println("Crier reached the end")
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Success!\n")
+}
+
+func runWebServer(listener net.Listener) {
+	log.Fatalln("HTTP Server Quit!", http.Serve(listener, nil))
+}
+
+func startWebServer(port uint16) {
+	bind_addr := fmt.Sprintf("0.0.0.0:%d", port)
+
+	listener, err := net.Listen("tcp", bind_addr)
+	if err != nil {
+		log.Fatalf("Failed to bind to %s", bind_addr)
+	}
+
+	http.HandleFunc("/", handler)
+
+	go runWebServer(listener)
+
+	log.Println("Started web server")
 }
