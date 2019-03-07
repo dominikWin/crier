@@ -29,8 +29,6 @@ func parseArgs() (uint16, string) {
 		key := args[i*2]
 		value := args[i*2+1]
 		switch key {
-		case "-p":
-			fallthrough
 		case "--port":
 			if set_port {
 				log.Fatalln("Duplicated argument!")
@@ -45,8 +43,6 @@ func parseArgs() (uint16, string) {
 				log.Fatalln("Port number out of range!")
 			}
 			port = uint16(n)
-		case "-r":
-			fallthrough
 		case "--redis":
 			if set_redis_location {
 				log.Fatalln("Duplicated argument!")
