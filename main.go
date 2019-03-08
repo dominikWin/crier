@@ -9,8 +9,13 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync/atomic"
 	"syscall"
+	"time"
 )
+
+var activeConnections uint64
+var rejectConnections uint32
 
 func parseArgs() (uint16, string) {
 
@@ -73,7 +78,7 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGTERM)
 	signal.Notify(shutdown, syscall.SIGINT)
 
-	httpServer := startWebServer(port)
+	httpServer, httpServerOnclose := startWebServer(port)
 
 	// Quick ref sheet
 	fmt.Printf("\n")
@@ -85,30 +90,58 @@ func main() {
 
 	log.Println("Shutdown signal received! Closing...")
 
+	stopWebServer(httpServer, httpServerOnclose)
+
+	log.Println("Crier reached the end")
+}
+
+func stopWebServer(httpServer *http.Server, onclose chan int) {
+	atomic.StoreUint32(&rejectConnections, 1)
+
+	// Try not to force shutdown until necessary
+	for i := 0; i < 500; i++ {
+		if atomic.LoadUint64(&activeConnections) > 0 {
+			time.Sleep(time.Millisecond)
+		} else {
+			break
+		}
+	}
+
 	err := httpServer.Shutdown(context.Background())
 	if err != nil {
 		log.Panic(err)
 	}
 
-	log.Println("Crier reached the end")
+	<-onclose
+}
+
+func handle(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Success!\n")
 }
 
 type server struct{}
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Success!\n")
+	if atomic.LoadUint32(&rejectConnections) > 0 {
+		w.WriteHeader(503)
+	} else {
+		atomic.AddUint64(&activeConnections, 1)
+		handle(w, r)
+		atomic.AddUint64(&activeConnections, ^uint64(0))
+	}
 }
 
-func runWebServer(svr *http.Server, listener net.Listener) {
+func runWebServer(svr *http.Server, listener net.Listener, onclose chan int) {
 	err := svr.Serve(listener)
 	if err == http.ErrServerClosed {
 		log.Println("Web server closed")
+		onclose <- 1
 	} else {
 		log.Fatalln("Web server crashed! ", err)
 	}
 }
 
-func startWebServer(port uint16) *http.Server {
+func startWebServer(port uint16) (*http.Server, chan int) {
 	bind_addr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	listener, err := net.Listen("tcp", bind_addr)
@@ -118,9 +151,11 @@ func startWebServer(port uint16) *http.Server {
 
 	h := http.Server{Handler: &server{}}
 
-	go runWebServer(&h, listener)
+	onclose := make(chan int)
+
+	go runWebServer(&h, listener, onclose)
 
 	log.Println("Started web server")
 
-	return &h
+	return &h, onclose
 }
