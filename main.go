@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 )
 
 func parseArgs() (uint16, string) {
@@ -66,7 +69,11 @@ func main() {
 
 	log.Println("!!! Crier is starting !!!")
 
-	startWebServer(port)
+	shutdown := make(chan os.Signal)
+	signal.Notify(shutdown, syscall.SIGTERM)
+	signal.Notify(shutdown, syscall.SIGINT)
+
+	httpServer := startWebServer(port)
 
 	// Quick ref sheet
 	fmt.Printf("\n")
@@ -74,20 +81,34 @@ func main() {
 	fmt.Printf("    PID: %d\n", pid)
 	fmt.Printf("\n")
 
-	select {}
+	<-shutdown
+
+	log.Println("Shutdown signal received! Closing...")
+
+	err := httpServer.Shutdown(context.Background())
+	if err != nil {
+		log.Panic(err)
+	}
 
 	log.Println("Crier reached the end")
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+type server struct{}
+
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Success!\n")
 }
 
-func runWebServer(listener net.Listener) {
-	log.Fatalln("HTTP Server Quit!", http.Serve(listener, nil))
+func runWebServer(svr *http.Server, listener net.Listener) {
+	err := svr.Serve(listener)
+	if err == http.ErrServerClosed {
+		log.Println("Web server closed")
+	} else {
+		log.Fatalln("Web server crashed! ", err)
+	}
 }
 
-func startWebServer(port uint16) {
+func startWebServer(port uint16) *http.Server {
 	bind_addr := fmt.Sprintf("0.0.0.0:%d", port)
 
 	listener, err := net.Listen("tcp", bind_addr)
@@ -95,9 +116,11 @@ func startWebServer(port uint16) {
 		log.Fatalf("Failed to bind to %s", bind_addr)
 	}
 
-	http.HandleFunc("/", handler)
+	h := http.Server{Handler: &server{}}
 
-	go runWebServer(listener)
+	go runWebServer(&h, listener)
 
 	log.Println("Started web server")
+
+	return &h
 }
