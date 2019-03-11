@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -23,7 +26,34 @@ var rejectConnections uint32
 var redisClient *redis.Client
 var redisMutex sync.Mutex
 
-func parseArgs() (uint16, string) {
+var secretGlobal string
+
+func random_secret() string {
+	token := make([]byte, 10)
+	if _, err := rand.Read(token); err != nil {
+		log.Panic(err)
+	}
+
+	return base32.StdEncoding.EncodeToString(token)
+}
+
+func verify_secret(secret string) {
+	if len(secret) < 6 {
+		log.Fatalln("Secret must be at least 6 characters!")
+	}
+
+	if len(secret) > 100 {
+		log.Fatalln("Secret is too long!")
+	}
+
+	for _, c := range secret {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+			log.Fatalf("Bad character '%c' in secret, must be alphanumeric", c)
+		}
+	}
+}
+
+func parseArgs() (uint16, string, string) {
 
 	var port uint16 = 6782
 	set_port := false
@@ -31,10 +61,13 @@ func parseArgs() (uint16, string) {
 	var redis_location string = "localhost:6379"
 	set_redis_location := false
 
+	var secret string = random_secret()
+	set_secret := false
+
 	args := os.Args[1:]
 
 	if len(args) == 0 {
-		return port, redis_location
+		return port, redis_location, secret
 	}
 
 	if len(args)%2 != 0 {
@@ -66,16 +99,25 @@ func parseArgs() (uint16, string) {
 			set_redis_location = true
 
 			redis_location = value
+		case "--secret":
+			if set_secret {
+				log.Fatalln("Duplicated argument!")
+			}
+			set_secret = true
+
+			verify_secret(value)
+			secret = value
 		default:
 			log.Fatalf("Unknown CLI argument (%s) given!\n", key)
 		}
 	}
 
-	return port, redis_location
+	return port, redis_location, secret
 }
 
 func main() {
-	port, redis_location := parseArgs()
+	port, redis_location, secret := parseArgs()
+	secretGlobal = secret
 	pid := os.Getpid()
 
 	log.Println("!!! Crier is starting !!!")
@@ -98,8 +140,9 @@ func main() {
 
 	// Quick ref sheet
 	fmt.Printf("\n")
-	fmt.Printf("    Port: %d\n", port)
-	fmt.Printf("    PID: %d\n", pid)
+	fmt.Printf("    Port:    %d\n", port)
+	fmt.Printf("    PID:     %d\n", pid)
+	fmt.Printf("    Secret:  %s\n", secret)
 	fmt.Printf("\n")
 
 	<-shutdown
@@ -131,7 +174,44 @@ func stopWebServer(httpServer *http.Server, onclose chan int) {
 }
 
 func handle(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Success!\n")
+
+	// Verify prefix
+	expected_prefix := fmt.Sprintf("/%s/", secretGlobal)
+	if strings.HasPrefix(r.RequestURI, expected_prefix) {
+		message_raw := r.RequestURI[len(expected_prefix):]
+
+		message_bytes, err := base32.StdEncoding.DecodeString(message_raw)
+		if err != nil || len(message_bytes) == 0 {
+			w.WriteHeader(400)
+			fmt.Fprintln(w, "Failed to parse message as base32!")
+			return
+		}
+
+		message := string(message_bytes)
+
+		xadd_map := map[string]interface{}{"message": message, "host": r.RemoteAddr}
+
+		xadd_args := redis.XAddArgs{
+			Stream: "crier",
+			Values: xadd_map,
+		}
+
+		redisMutex.Lock()
+		_, err = redisClient.XAdd(&xadd_args).Result()
+		redisMutex.Unlock()
+
+		if err != nil {
+			log.Println("Redis xadd failed!", err)
+			w.WriteHeader(500)
+			fmt.Fprintln(w, "Failed to write to database!")
+			return
+		}
+
+		fmt.Fprintln(w, "Success!")
+	} else {
+		w.WriteHeader(403)
+		fmt.Fprintln(w, "Permission denied!")
+	}
 }
 
 type server struct{}
