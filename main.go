@@ -9,13 +9,19 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/go-redis/redis"
 )
 
 var activeConnections uint64
 var rejectConnections uint32
+
+var redisClient *redis.Client
+var redisMutex sync.Mutex
 
 func parseArgs() (uint16, string) {
 
@@ -69,7 +75,7 @@ func parseArgs() (uint16, string) {
 }
 
 func main() {
-	port, _ := parseArgs()
+	port, redis_location := parseArgs()
 	pid := os.Getpid()
 
 	log.Println("!!! Crier is starting !!!")
@@ -80,6 +86,16 @@ func main() {
 
 	httpServer, httpServerOnclose := startWebServer(port)
 
+	redisClient = redis.NewClient(&redis.Options{
+		Addr: redis_location,
+		DB:   0,
+	})
+
+	_, err := redisClient.Ping().Result()
+	if err != nil {
+		log.Fatalln("Failed to connect to redis")
+	}
+
 	// Quick ref sheet
 	fmt.Printf("\n")
 	fmt.Printf("    Port: %d\n", port)
@@ -87,7 +103,6 @@ func main() {
 	fmt.Printf("\n")
 
 	<-shutdown
-
 	log.Println("Shutdown signal received! Closing...")
 
 	stopWebServer(httpServer, httpServerOnclose)
@@ -150,12 +165,10 @@ func startWebServer(port uint16) (*http.Server, chan int) {
 	}
 
 	h := http.Server{Handler: &server{}}
-
 	onclose := make(chan int)
 
 	go runWebServer(&h, listener, onclose)
 
 	log.Println("Started web server")
-
 	return &h, onclose
 }
