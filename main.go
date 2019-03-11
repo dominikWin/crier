@@ -189,7 +189,12 @@ func handle(w http.ResponseWriter, r *http.Request) {
 
 		message := string(message_bytes)
 
-		xadd_map := map[string]interface{}{"message": message, "host": r.RemoteAddr}
+		r_host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		xadd_map := map[string]interface{}{"message": message, "host": r_host}
 
 		xadd_args := redis.XAddArgs{
 			Stream: "crier",
