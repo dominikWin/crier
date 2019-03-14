@@ -6,7 +6,7 @@ var colors = ["red", "blue", "orange", "green", "violet", "black", "yellow", "te
 var color_counter = 0;
 var host_colors = new Map();
 
-var websocket = new WebSocket("ws://localhost:8000/ws");
+var websocket = new WebSocket(`ws://${window.location.host}/ws`);
 
 websocket.onopen = function () {
     websocket.send('init');
