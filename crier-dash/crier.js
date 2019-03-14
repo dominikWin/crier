@@ -2,12 +2,30 @@ var message_container = document.getElementById("message_container");
 var old_contents = "";
 var active_host = "";
 var active_messages = [];
+var colors = ["red", "blue", "orange", "green", "violet", "black", "yellow", "teal", "pink", "olive"];
+var color_counter = 0;
+var host_colors = new Map();
 
 var websocket = new WebSocket("ws://localhost:8000/ws");
 
 websocket.onopen = function () {
     websocket.send('init');
 };
+
+function get_host_color(host) {
+    if(host_colors.has(host)) {
+        return host_colors.get(host);
+    }
+
+    var color = colors[color_counter];
+    color_counter++;
+    if(color_counter >= colors.length) {
+        color_counter = 0;
+    }
+
+    host_colors.set(host, color);
+    return color;
+}
 
 function messages_to_table(msg, color) {
     var rows = "";
@@ -35,13 +53,13 @@ function messages_to_table(msg, color) {
 function add_message(msg) {
     if(msg.host != active_host) {
         if(active_messages.length > 0) {
-            old_contents = messages_to_table(active_messages) + old_contents;
+            old_contents = messages_to_table(active_messages, get_host_color(active_host)) + old_contents;
         }
         active_messages = [];
     }
     active_host = msg.host;
     active_messages = active_messages.concat([msg]);
-    var contents = messages_to_table(active_messages) + old_contents;
+    var contents = messages_to_table(active_messages, get_host_color(active_host)) + old_contents;
     message_container.innerHTML = contents;
 }
 
