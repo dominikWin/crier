@@ -6,12 +6,6 @@ var colors = ["red", "blue", "orange", "green", "violet", "black", "yellow", "te
 var color_counter = 0;
 var host_colors = new Map();
 
-var websocket = new WebSocket(`ws://${window.location.host}/ws`);
-
-websocket.onopen = function () {
-    websocket.send('init');
-};
-
 function get_host_color(host) {
     if(host_colors.has(host)) {
         return host_colors.get(host);
@@ -63,6 +57,15 @@ function add_message(msg) {
     message_container.innerHTML = contents;
 }
 
-websocket.onmessage = function (event) {
-    add_message(JSON.parse(event.data))
-};
+$(document).ready(function() {
+    var websocket = new WebSocket(`ws://${window.location.host}/ws`);
+
+    websocket.onopen = function () {
+        websocket.send('init');
+    };
+    
+    websocket.onmessage = function (event) {
+        add_message(JSON.parse(event.data))
+    };
+});
+
