@@ -5,6 +5,7 @@ var active_messages = [];
 var colors = ["red", "blue", "orange", "green", "violet", "black", "yellow", "teal", "pink", "olive"];
 var color_counter = 0;
 var host_colors = new Map();
+var last_message_id = "0-0"
 
 function get_host_color(host) {
     if(host_colors.has(host)) {
@@ -53,19 +54,41 @@ function add_message(msg) {
     }
     active_host = msg.host;
     active_messages = active_messages.concat([msg]);
+    last_message_id = msg.id;
     var contents = messages_to_table(active_messages, get_host_color(active_host)) + old_contents;
     message_container.innerHTML = contents;
 }
 
-$(document).ready(function() {
+function error_dim(dim) {
+    if(dim) {
+        $('body > .page.dimmer').dimmer('show');
+        $('body > .page.dimmer').dimmer.settings.closable = false;
+    } else {
+        $('body > .page.dimmer').dimmer('hide');
+    }
+}
+
+function attempt_ws_start() {
     var websocket = new WebSocket(`ws://${window.location.host}/ws`);
 
     websocket.onopen = function () {
-        websocket.send('init');
+        websocket.send(last_message_id);
+        error_dim(false);
     };
     
     websocket.onmessage = function (event) {
-        add_message(JSON.parse(event.data))
+        add_message(JSON.parse(event.data));
     };
-});
+
+    websocket.onerror = function(event) {
+        websocket.close()
+    }
+
+    websocket.onclose = function(event) {
+        error_dim(true);
+        setTimeout(attempt_ws_start, 3000);
+    }
+}
+
+$(document).ready(attempt_ws_start);
 

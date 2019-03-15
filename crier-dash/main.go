@@ -125,7 +125,15 @@ func handle_ws(w http.ResponseWriter, r *http.Request) {
 		log.Fatalln("Failed to connect to redis")
 	}
 
-	last_message_id := "0-0"
+	msg_type, msg, err := ws.ReadMessage()
+	if err != nil {
+		log.Panic(err)
+	}
+	if msg_type != websocket.TextMessage {
+		log.Fatalln("Bad message type")
+	}
+	last_message_id := string(msg)
+
 	for {
 		cmd := redis.XReadArgs{
 			Streams: []string{"crier", last_message_id},

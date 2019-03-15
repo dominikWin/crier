@@ -5,14 +5,28 @@
         <title>Crier</title>
 
         <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+        <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/components/dimmer.min.css">
         <script
         src="https://code.jquery.com/jquery-3.1.1.min.js"
         integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
         crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/components/dimmer.min.js"></script>
     </head>
     <body>
         <h3>Crier</h3>
+
+        <div class="ui page dimmer">
+            <div class="content">
+                    <div class="center">
+                        <h2 class="ui inverted icon header">
+                            <i class="server icon"></i>
+                            Lost connection
+                            <div class="sub header">Attempting to recover...</div>
+                        </h2>
+                    </div>
+            </div>
+        </div>
 
         <div id="message_container"></div>
         <script src="js/crier.js"></script>
