@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -21,6 +22,9 @@ var upgrader = websocket.Upgrader{
 }
 
 var redis_addr string
+
+var g_redis *redis.Client
+var g_redisMutex sync.Mutex
 
 func parseArgs() (uint16, string) {
 
@@ -87,7 +91,7 @@ func main() {
 		log.Fatalln("Failed to connect to redis")
 	}
 
-	redisClient.Close()
+	g_redis = redisClient
 
 	bind_addr := fmt.Sprintf("0.0.0.0:%d", port)
 
@@ -99,6 +103,7 @@ func main() {
 	http.HandleFunc("/", handle_index)
 	http.HandleFunc("/js/crier.js", handle_crierjs)
 	http.HandleFunc("/ws", handle_ws)
+	http.HandleFunc("/message/", handle_message)
 	http.Serve(listener, nil)
 }
 
@@ -107,7 +112,39 @@ func handle_crierjs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handle_index(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "index.html")
+	if r.RequestURI != "/" {
+		w.WriteHeader(404)
+		fmt.Fprintln(w, "404")
+	} else {
+		http.ServeFile(w, r, "index.html")
+	}
+}
+
+func get_message(id string) []byte {
+	g_redisMutex.Lock()
+	defer g_redisMutex.Unlock()
+
+	result, err := g_redis.XRange("crier", id, id).Result()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	msg := result[0].Values["message"]
+
+	if msg_bin, ok := msg.(string); ok {
+		return []byte(msg_bin)
+	} else {
+		log.Panic(ok)
+		return []byte{}
+	}
+}
+
+func handle_message(w http.ResponseWriter, r *http.Request) {
+	id := r.RequestURI[9:]
+	bin := get_message(id)
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	fmt.Fprint(w, string(bin))
 }
 
 func handle_ws(w http.ResponseWriter, r *http.Request) {
