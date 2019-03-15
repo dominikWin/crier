@@ -208,7 +208,7 @@ func handle_ws(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if len(msg_message) > 90 {
-				msg_message = msg_message[0:90]
+				msg_message = msg_message[0:87] + "..."
 			}
 
 			msg_message = html.EscapeString(msg_message)
