@@ -34,9 +34,9 @@ function messages_to_table(msg, color) {
     return `<table class="ui celled very compact ${color} table">
     <thead>
         <tr>
-            <th width="10%">ID</th>
-            <th width="12%">Host</th>
-            <th width="78%">Message</th>
+            <th width="150px">ID</th>
+            <th width="125px">Host</th>
+            <th>Message</th>
         </tr>
     </thead>
     <tbody>
