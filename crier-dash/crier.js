@@ -28,7 +28,7 @@ function messages_to_table(msg, color) {
         rows = `<tr>
         <td>${msg[i].id}</td>
         <td>${msg[i].host}</td>
-        <td>${msg[i].message_head}</td>
+        <td style="white-space: nowrap;">${msg[i].message_head}</td>
         </tr>` + rows;
     }
     return `<table class="ui celled very compact ${color} table">

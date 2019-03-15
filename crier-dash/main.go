@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net"
 	"net/http"
@@ -168,6 +169,12 @@ func handle_ws(w http.ResponseWriter, r *http.Request) {
 			} else {
 				log.Panic(ok)
 			}
+
+			if len(msg_message) > 90 {
+				msg_message = msg_message[0:90]
+			}
+
+			msg_message = html.EscapeString(msg_message)
 
 			ws_msg := map[string]string{"id": message.ID, "host": msg_host, "message_head": msg_message}
 
