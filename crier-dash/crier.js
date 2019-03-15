@@ -85,6 +85,7 @@ function attempt_ws_start() {
     }
 
     websocket.onclose = function(event) {
+        console.log('Websocket closed, code ' + event.code)
         error_dim(true);
         setTimeout(attempt_ws_start, 3000);
     }

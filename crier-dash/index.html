@@ -14,25 +14,26 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/components/dimmer.min.js"></script>
     </head>
     <body>
-        <h3>Crier</h3>
+        <div id="content" style="margin-top: 25px; margin-left: 35px; margin-right: 35px;">
+            <h3>Crier</h3>
 
-        <div class="ui page dimmer">
-            <div class="content">
-                    <div class="center">
-                        <h2 class="ui inverted icon header">
-                            <i class="server icon"></i>
-                            Lost connection
-                            <div class="sub header">Attempting to recover...</div>
-                        </h2>
-                    </div>
-            </div>
-        </div>
-
-        <div id="message_container">
-            <div style="text-align: center">
-                <h5>Nothing here!</h5>
+            <div id="message_container">
+                <div style="text-align: center">
+                    <h5>Nothing here!</h5>
+                </div>
             </div>
         </div>
         <script src="js/crier.js"></script>
+        <div class="ui page dimmer">
+            <div class="content">
+                <div class="center">
+                    <h2 class="ui inverted icon header">
+                        <i class="server icon"></i>
+                        Lost connection
+                        <div class="sub header">Attempting to recover...</div>
+                    </h2>
+                </div>
+            </div>
+        </div>
     </body>
 </html> 

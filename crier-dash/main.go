@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -207,8 +208,21 @@ func handle_ws(w http.ResponseWriter, r *http.Request) {
 				log.Panic(ok)
 			}
 
+			lines := strings.SplitN(msg_message, "\n", 2)
+
+			add_ellipses := false
+			if len(lines) > 1 {
+				msg_message = lines[0]
+				add_ellipses = true
+			}
+
 			if len(msg_message) > 90 {
-				msg_message = msg_message[0:87] + "..."
+				msg_message = msg_message[0:87]
+				add_ellipses = true
+			}
+
+			if add_ellipses {
+				msg_message += "..."
 			}
 
 			msg_message = html.EscapeString(msg_message)
